@@ -19,10 +19,14 @@
 
 
 #define DEFAULT_CART_MASS 1
+#define DEFAULT_R_SPEED 20
+#define R_CURRENT_THRESHOLD 200
+#define XY_CURRENT_THRESHOLD 300   //think 200 will be better
+
 #define MAX_COLLISION_FACTOR 14
 #define COLLISION_OFFSET 1
-#define THRESHOLD_CURRENT 300
-#define THRESHOLD_R_CURRENT 100
+
+
 #define EMPTY_CART_SPEED_KP 50
 #define EMPTY_CART_SPEED_KI 2
 #define DEFAULT_SPEED_REFERENCE_FILTER 1000
@@ -72,7 +76,8 @@ void ResetControlWord();
 extern "C" {
 
 	// PUBLIC API
-
+	//connect to default ip 137.204.56.92 - test
+	VICARLIB_API int Connect(string address, int port, int mass);
 	// initialize the system with a defined mass
 	VICARLIB_API int ConnectForUnity();
 	// close modbus connection
@@ -93,10 +98,8 @@ extern "C" {
 	//TODO THE FOLLOWING FUNCTIONS HAVE TO BE PRIVATE
 	//just a test function
 	VICARLIB_API int Test();
-	//connect to default ip 137.204.56.92 - test
-	VICARLIB_API int Connect(string address, int port, int mass);
+
 	// get X,Y positions
-	VICARLIB_API void StoreStartPositionR(float value);
 	VICARLIB_API float* GetPosition();
 	VICARLIB_API float GetPositionX();
 	VICARLIB_API float GetPositionY();
@@ -140,6 +143,5 @@ extern "C" {
 
 	VICARLIB_API int GetMass();
 
-	VICARLIB_API void RotationTest();
 	VICARLIB_API void RotationTestWithSign();
 }

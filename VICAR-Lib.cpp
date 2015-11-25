@@ -36,6 +36,7 @@ static uint16_t RSpeedParameters[3];
 
 static int cart_mass;
 static short current[3];
+static float torque;
 static float position[3];
 static float velocity[3];
 
@@ -48,18 +49,19 @@ static modbus_t *mb;
 
 fstream file;
 
+/*********************************/
+/*	PRIVATE CONTROL SETTINGS	 */
+/*********************************/
+
 void SetSpeedMode() {
 	ControlWord[0] = 64; //1000000
 	modbus_write_registers(mb, CONTROL_WORD, 1, ControlWord);
 };
-
 void SetPositionAndSpeedMode()
 {
 	ControlWord[0] = 70; //1000110
 	modbus_write_registers(mb, CONTROL_WORD, 1, ControlWord);
 };
-
-
 void SetPositionControlWord() {
 	ControlWord[0] = 6;		//110   up front for X-Y axes
 	modbus_write_registers(mb, CONTROL_WORD, 1, ControlWord);
@@ -76,13 +78,14 @@ void ResetControlWord() {
 	ControlWord[0] = 0;
 	modbus_write_registers(mb, CONTROL_WORD, 1, ControlWord);
 };
-
 void Set_R_and_ChangeOfSpeed_ControlWord()
 {
 	ControlWord[0] = 40; //101000
 	modbus_write_registers(mb, CONTROL_WORD, 1, ControlWord);
 }
 
+
+// TO BE REMOVED - a couple of math functions
 int sign(float value)
 {
 	if (value >= 0)
@@ -90,7 +93,6 @@ int sign(float value)
 	else
 		return -1;
 }
-
 float mean(vector<float>& q)
 {
 	float m = 0;
@@ -109,9 +111,10 @@ extern "C" {
 
 	VICARLIB_API int Test() {
 
-		return 77;
+		return 77;		//good number!
 	};
 
+	// JUST FOR UNITY
 	VICARLIB_API int ConnectForUnity()
 	{
 		mb = modbus_new_tcp("137.204.56.92", 1024);
@@ -120,19 +123,8 @@ extern "C" {
 
 		printf("Modbus connected\n");
 
-		// log file for debug
-
-		//file.open("VICAR-Lib-Debug.log", fstream::out);
-		//file << "CurrentX" << "  " << "CurrentY" << "\n";
-
-		//SetMass(DEFAULT_CART_MASS);
-
+		SetMass(1);
 		SetPositionXY(10, 10, CART_SPEED, CART_SPEED);
-
-		//TODO
-		// set position R ??????
-
-
 		return 0;
 	};
 
@@ -142,24 +134,16 @@ extern "C" {
 		mb = modbus_new_tcp(address.c_str(), port);
 		modbus_set_slave(mb, 1);
 		int connection = modbus_connect(mb);
-
 		printf("Modbus connected\n");
-		
-		// log file for debug
 
-		//file.open("VICAR-Lib-Debug.log", fstream::out);
-		//file << "CurrentX" << "  " << "CurrentY" << "\n";
 		//ResetControlWord();
+		//Sleep (time);
+		//SetPositionAndSpeedMode();
 
 		SetMass(mass);
 		SetPositionXY(10, 10, CART_SPEED, CART_SPEED);
 
 		return connection;
-	};
-
-	VICARLIB_API void StoreStartPositionR(float value)
-	{
-		r_start_position = value;
 	};
 
 	VICARLIB_API int Close() {
@@ -186,6 +170,29 @@ extern "C" {
 			SetParametersY(90, 3, 1000);
 		}
 		cart_mass = value;
+	};
+
+	VICARLIB_API void Update()
+	{
+		GetCurrent();		//update values of current
+		float abs_current;
+		R_current = (float)current[2];
+		printf("R current is %.2f\n", R_current);
+		abs_current = abs(R_current);
+
+		// check cart mass
+		if (cart_mass < 1)
+			cart_mass = 1;
+
+		if (abs_current > R_CURRENT_THRESHOLD)  //200
+		{
+			if (R_current > 0)
+				SetSpeedWithSignR(DEFAULT_R_SPEED / cart_mass);
+			else
+				SetSpeedWithSignR(-DEFAULT_R_SPEED / cart_mass);
+		}
+		else
+			SetSpeedWithSignR(0);
 	};
 
 	VICARLIB_API int GetMass() {
@@ -313,9 +320,11 @@ extern "C" {
 		SetPosArray[6] = (speed_y & 0xFFFF0000) / 65536;
 		SetPosArray[7] = speed_y & 0x0000FFFF;
 		modbus_write_registers(mb, SET_LINEAR_X_POSITION, 8, SetPosArray);
-		SetPositionAndSpeedMode();
+		SetPositionAndSpeedMode();		// set X,Y and R
 	};
 
+
+	// WORKING NOW ONLY ON SPEED MODE 
 	VICARLIB_API void SetPositionR(float pos_r)
 	{
 		int pr = pos_r * 1000;
@@ -373,25 +382,14 @@ extern "C" {
 	VICARLIB_API void SetSpeedWithSignR(int speed)	//expressed in RPM
 	{
 
-		if (speed < 0)
+		if (speed < 0)		//check the sign
 		{
 			speed = 65536 - abs(speed);
 		}
 		uint16_t ChangeOfSpeed[1];
-		//ResetControlWord();
-	//	ChangeOfSpeed[0] = (speed & 0xFFFF0000) / 65536;
-	//ChangeOfSpeed[1] = speed & 0x0000FFFF;
 		ChangeOfSpeed[0] = speed;
-		SetSpeedMode();
 		modbus_write_registers(mb, SET_R_CHANGE_OF_SPEED_WITH_SIGN, 1, ChangeOfSpeed);
 		
-		//uint16_t sp[1];
-		//modbus_read_registers(mb, SET_R_CHANGE_OF_SPEED_WITH_SIGN, 2, sp);
-		////float r_position = (float)(((unsigned short)sp[0] * 65536) + (unsigned short)sp[1]);
-		//float r_position = (float)(unsigned short)sp[0];
-
-		//printf("%i\n", r_position);
-		/*SetSpeedMode();*/
 	};
 
 	VICARLIB_API short* GetCurrent() {
@@ -430,37 +428,50 @@ extern "C" {
 		return ready_status;
 	};
 
-	VICARLIB_API void Update() {
-		//update current and position
-		GetCurrent();
-		GetPosition();
-		GetVelocity();
-		//printf("Current is %i and %i and %i\n", current[0], current[1],current[2]);
-		//printf("Position is %.2f and %.2f and %.2f\n", position[0], position[1], position[2]);
-		//printf("Rotation is %.2f\n", GetTorque());
-	};
 	VICARLIB_API float GetForceX() {
-		if (abs(current[0]) > THRESHOLD_CURRENT || abs(current[1]) > THRESHOLD_CURRENT)
-			return (current[0] + current[1]) / 200;
+		if (abs(current[0]) > XY_CURRENT_THRESHOLD || abs(current[1]) > XY_CURRENT_THRESHOLD)
+			return (current[0] + current[1]) / R_CURRENT_THRESHOLD;	// at least 300 - 200
 		else
 			return 0.0f;
 	};
 	VICARLIB_API float GetForceY() {
-		if (abs(current[0]) > THRESHOLD_CURRENT || abs(current[1]) > THRESHOLD_CURRENT)
-			return (current[0] - current[1]) / 200;
+		if (abs(current[0]) > XY_CURRENT_THRESHOLD || abs(current[1]) > XY_CURRENT_THRESHOLD)
+			return (current[0] - current[1]) / R_CURRENT_THRESHOLD;	// at least 300 - 200
 		else
 			return 0.0f;
 	};
+
+	// torque = dL/dt with L = moment of inertia x angular velocity
+	// moment of inertia = m * r^2  = 1  first approximations
+	// torque proportial to R current but for currents < 200 needs to stop
+
 	VICARLIB_API float GetTorque() {
-		if (abs(current[2]) > THRESHOLD_R_CURRENT)
-			return current[2];
+		if (abs(current[2]) > R_CURRENT_THRESHOLD)
+		{
+			torque = current[2];		//set  torque equal to R current  (just a model)
+			return torque;
+		}
 		else
-			return 0.0f;
+		{
+			if (torque >= 5)
+				torque -= 5;
+			else if (torque <= 5)
+				torque += 5;
+			else
+				torque = 0.0f;
+			return torque;
+		}	
 	};
 
 	VICARLIB_API float GetAbsoluteAngle() {
 		return position[2];
 	};
+
+
+
+	/*******************************/
+	/*	TESTING FUNCTIONS		   */
+	/*******************************/
 
 	VICARLIB_API void RotationTestWithSign()
 	{
@@ -478,61 +489,7 @@ extern "C" {
 			SetSpeedWithSignR(0);
 	};
 
-	VICARLIB_API void RotationTest()
-	{
-		//SetChangeOfSpeedR(0);
-
-		float r_velocity = GetVelocityR();
-		printf("R velocity %.2f\n", r_velocity);
-
-		R_current = (float)GetCurrentR_fromRegister();
-		float abs_current = abs(R_current);
-		//printf("abs current is %.2f\n", abs_current);
-
-		if (abs_current > 200 && abs_current < 2000)
-		{
-			r_filter_list.push_back(R_current);
-		}
-		else
-		{
-			r_filter_list.push_back(0);
-		}
 
 
-		
-		if (r_filter_list.size() > 4)
-		{
-			r_filter_list.erase(r_filter_list.begin());
-		}
-
-		float mean_r = 0;
-		float abs_offset = 0;
-
-
-
-		if (r_filter_list.size() > 3)
-		{
-			mean_r = mean(r_filter_list);
-			abs_offset = abs(mean_r);
-		}
-			
-		//printf("R current with correction is %.2f\n", r_filter_list); q
-		//printf("mean r is %.2f\n", mean_r);
-		//printf("R delta is %.2f and memory is %.2f\n", R_current, mean_r);
-		
-		float r_pos = GetPositionR() + (mean_r / 40);
-		r_start_position += (mean_r / 40);
-		//printf("current r position is %.2f or %.2f\n", r_pos,r_start_position);
-		float r_c = abs_offset / 9; // empyrical 
-		//printf("r_c is %.2f\n", r_c);
-
-		if (abs_offset > 200 && abs_offset < 2000)
-		{
-			//printf("r current is %.2f\n", R_current);
-			SetPositionR(r_pos); // ATTENTION: the order changes everything
-		}
-		//SetPositionR(r_pos);
-		SetChangeOfSpeedR(r_c);
-	}
 }
 
