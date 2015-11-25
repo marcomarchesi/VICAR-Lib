@@ -38,6 +38,7 @@ static int cart_mass;
 static short current[3];
 static float torque;
 static float position[3];
+static float r_position;
 static float velocity[3];
 
 static float r_position_delta;
@@ -175,6 +176,7 @@ extern "C" {
 	VICARLIB_API void Update()
 	{
 		GetCurrent();		//update values of current
+		//r_position = GetPositionR();	//update r position
 		float abs_current;
 		R_current = (float)current[2];
 		printf("R current is %.2f\n", R_current);
@@ -436,7 +438,7 @@ extern "C" {
 	};
 	VICARLIB_API float GetForceY() {
 		if (abs(current[0]) > XY_CURRENT_THRESHOLD || abs(current[1]) > XY_CURRENT_THRESHOLD)
-			return (current[0] - current[1]) / R_CURRENT_THRESHOLD;	// at least 300 - 200
+			return (current[0] - current[1]) / (XY_CURRENT_THRESHOLD - 100);	// at least 300 - 200
 		else
 			return 0.0f;
 	};
@@ -453,20 +455,23 @@ extern "C" {
 		}
 		else
 		{
-			if (torque >= 5)
+			//torque = 0.0f;
+			torque = torque / 1.2;
+			if (torque < 5 && torque > -5)
+				torque = 0.0f;
+			/*if (torque >= 5)
 				torque -= 5;
 			else if (torque <= 5)
 				torque += 5;
 			else
-				torque = 0.0f;
+				torque = 0.0f;*/
 			return torque;
 		}	
 	};
 
 	VICARLIB_API float GetAbsoluteAngle() {
-		return position[2];
+		return GetPositionR();	//update r position
 	};
-
 
 
 	/*******************************/
@@ -481,9 +486,9 @@ extern "C" {
 		if (abs_current > 200)
 		{
 			if (R_current > 0)
-				SetSpeedWithSignR(20);
+				SetSpeedWithSignR(DEFAULT_R_SPEED);
 			else
-				SetSpeedWithSignR(-20);
+				SetSpeedWithSignR(-DEFAULT_R_SPEED);
 		}	
 		else
 			SetSpeedWithSignR(0);

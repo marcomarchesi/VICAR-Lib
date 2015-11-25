@@ -20,7 +20,7 @@
 
 #define DEFAULT_CART_MASS 1
 #define DEFAULT_R_SPEED 20
-#define R_CURRENT_THRESHOLD 200
+#define R_CURRENT_THRESHOLD 100
 #define XY_CURRENT_THRESHOLD 300   //think 200 will be better
 
 #define MAX_COLLISION_FACTOR 14
@@ -91,7 +91,6 @@ extern "C" {
 	VICARLIB_API float GetForceY();
 	VICARLIB_API float GetAbsoluteAngle();
 	VICARLIB_API float GetTorque();
-
 
 	/*************************************************/
 
