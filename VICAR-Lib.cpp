@@ -12,6 +12,7 @@
 #include <thread>
 #include <vector>
 #include <list>
+#include <chrono>
 
 using namespace std;
 
@@ -54,68 +55,76 @@ fstream file;
 /*	PRIVATE CONTROL SETTINGS	 */
 /*********************************/
 
-int CheckStatus()
-{
-	modbus_read_registers(mb, STATUS_WORD, 1, StatusWord);
-	printf("status is %u\n", StatusWord[0]);
-	if ((StatusWord[0] & 128) == 128)
-		return 1;
-	else
-		return 0;
-}
-
-void SetSpeedMode() {
-	ControlWord[0] = 128; //10000000
-	modbus_write_registers(mb, CONTROL_WORD, 1, ControlWord);
-};
+// CONTROL WORD
 void SetPositionAndSpeedMode()
 {
 	ControlWord[0] = 224; //11100000
 	modbus_write_registers(mb, CONTROL_WORD, 1, ControlWord);
 };
-void SetPositionControlWord() {
-	ControlWord[0] = 6;		//110   up front for X-Y axes
-	modbus_write_registers(mb, CONTROL_WORD, 1, ControlWord);
-};
-void Set_R_PositionControlWord() {
-	ControlWord[0] = 8;     //1000
-	modbus_write_registers(mb, CONTROL_WORD, 1, ControlWord);
-};
-void Set_R_ChangeSpeedControlWord() {
-	ControlWord[0] = 32;     //100000
-	modbus_write_registers(mb, CONTROL_WORD, 1, ControlWord);
-};
+
 void ResetControlWord() {
 	ControlWord[0] = 0;
 	modbus_write_registers(mb, CONTROL_WORD, 1, ControlWord);
 };
-void Set_R_and_ChangeOfSpeed_ControlWord()
-{
-	ControlWord[0] = 40; //101000
-	modbus_write_registers(mb, CONTROL_WORD, 1, ControlWord);
-}
 
 
-// TO BE REMOVED - a couple of math functions
-int sign(float value)
-{
-	if (value >= 0)
-		return 1;
-	else
-		return -1;
-}
-float mean(vector<float>& q)
-{
-	float m = 0;
-	for (int i = 0; i < q.size(); ++i)
-	{
-		m += q[i];
-	}
-	m /= q.size();
-	//printf("mean is %.2f\n", m);
-	return m;
-}
+void SetParametersX(uint16_t kp, uint16_t ki, uint16_t reference_filter) {
 
+	XSpeedParameters[0] = kp;
+	XSpeedParameters[1] = ki;
+	XSpeedParameters[2] = reference_filter;
+	modbus_write_registers(mb, X_DRIVE_SPEED, 3, XSpeedParameters);
+};
+
+// SET PARAMETERS
+
+void SetParametersY(uint16_t kp, uint16_t ki, uint16_t reference_filter) {
+
+	YSpeedParameters[0] = kp;
+	YSpeedParameters[1] = ki;
+	YSpeedParameters[2] = reference_filter;
+	modbus_write_registers(mb, Y_DRIVE_SPEED, 3, YSpeedParameters);
+};
+
+void SetParametersR(uint16_t kp, uint16_t ki, uint16_t reference_filter) {
+	RSpeedParameters[0] = kp;
+	RSpeedParameters[1] = ki;
+	RSpeedParameters[2] = reference_filter;
+	modbus_write_registers(mb, R_DRIVE_SPEED, 3, RSpeedParameters);
+};
+
+// SET POSITION
+
+void SetPositionXY(int pos_x, int pos_y, int speed_x, int speed_y) {
+
+	// convert to micrometers
+	pos_x *= 1000;
+	pos_y *= 1000;
+
+	//ResetControlWord();
+	SetPosArray[0] = (pos_x & 0xFFFF0000) / 65536;
+	SetPosArray[1] = pos_x & 0x0000FFFF;
+	SetPosArray[2] = (speed_x & 0xFFFF0000) / 65536;
+	SetPosArray[3] = speed_x & 0x0000FFFF;
+	SetPosArray[4] = (pos_y & 0xFFFF0000) / 65536;
+	SetPosArray[5] = pos_y & 0x0000FFFF;
+	SetPosArray[6] = (speed_y & 0xFFFF0000) / 65536;
+	SetPosArray[7] = speed_y & 0x0000FFFF;
+	modbus_write_registers(mb, SET_LINEAR_X_POSITION, 8, SetPosArray);
+	SetPositionAndSpeedMode();		// set X,Y and R
+};
+
+// CHECK STATUS WORD
+bool IsMoving() {
+	modbus_read_registers(mb, 100, 1, StatusWord);
+	bool moving_status = CHECK_BIT(StatusWord[0], 4) || CHECK_BIT(StatusWord[0], 5) || CHECK_BIT(StatusWord[0], 6); //bit 4 and 5
+	return moving_status;
+};
+bool IsReady() {
+	modbus_read_registers(mb, 100, 1, StatusWord);
+	bool ready_status = CHECK_BIT(StatusWord[0], 7);
+	return ready_status;
+};
 
 
 extern "C" {
@@ -135,7 +144,6 @@ extern "C" {
 		printf("Modbus connected\n");
 
 		Sleep(2000);
-		//SetPositionAndSpeedMode();
 		SetMass(1);
 		SetPositionXY(10, 10, CART_SPEED, CART_SPEED);
 		return 0;
@@ -150,7 +158,6 @@ extern "C" {
 		printf("Modbus connected\n");
 
 		Sleep(2000);
-		//SetPositionAndSpeedMode();
 		SetMass(mass);
 		SetPositionXY(10, 10, CART_SPEED, CART_SPEED);
 
@@ -185,12 +192,13 @@ extern "C" {
 
 	VICARLIB_API void Update()
 	{
+
+		//auto start = std::chrono::high_resolution_clock::now();
+
 		GetCurrent();		//update values of current
-		//r_position = GetPositionR();	//update r position
 		float abs_current;
 		R_current = (float)current[2];
-		printf("R current is %.2f\n", R_current);
-		//printf("vel is %.2f\n", GetVelocityR());
+		//printf("R current is %.2f\n", R_current);
 		abs_current = abs(R_current);
 
 		// check cart mass
@@ -206,6 +214,11 @@ extern "C" {
 		}
 		else
 			SetSpeedWithSignR(0);
+
+		//measure the time elapsed
+		//auto end = std::chrono::high_resolution_clock::now();
+		//auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+		//printf("time elapsed %i\n", elapsed);
 	};
 
 	VICARLIB_API int GetMass() {
@@ -294,103 +307,8 @@ extern "C" {
 		return RSpeedParameters;
 	};
 
-	VICARLIB_API void SetParametersX(uint16_t kp, uint16_t ki, uint16_t reference_filter) {
-
-		XSpeedParameters[0] = kp;
-		XSpeedParameters[1] = ki;
-		XSpeedParameters[2] = reference_filter;
-		modbus_write_registers(mb, X_DRIVE_SPEED, 3, XSpeedParameters);
-	};
-
-	VICARLIB_API void SetParametersY(uint16_t kp, uint16_t ki, uint16_t reference_filter) {
-
-		YSpeedParameters[0] = kp;
-		YSpeedParameters[1] = ki;
-		YSpeedParameters[2] = reference_filter;
-		modbus_write_registers(mb, Y_DRIVE_SPEED, 3, YSpeedParameters);
-	};
-
-	VICARLIB_API void SetParametersR(uint16_t kp, uint16_t ki, uint16_t reference_filter) {
-		RSpeedParameters[0] = kp;
-		RSpeedParameters[1] = ki;
-		RSpeedParameters[2] = reference_filter;
-		modbus_write_registers(mb, R_DRIVE_SPEED, 3, RSpeedParameters);
-	};
-
-	VICARLIB_API void SetPositionXY(int pos_x, int pos_y, int speed_x, int speed_y) {
-
-		// convert to micrometers
-		pos_x *= 1000;
-		pos_y *= 1000;
-
-		//ResetControlWord();
-		SetPosArray[0] = (pos_x & 0xFFFF0000) / 65536;
-		SetPosArray[1] = pos_x & 0x0000FFFF;
-		SetPosArray[2] = (speed_x & 0xFFFF0000) / 65536;
-		SetPosArray[3] = speed_x & 0x0000FFFF;
-		SetPosArray[4] = (pos_y & 0xFFFF0000) / 65536;
-		SetPosArray[5] = pos_y & 0x0000FFFF;
-		SetPosArray[6] = (speed_y & 0xFFFF0000) / 65536;
-		SetPosArray[7] = speed_y & 0x0000FFFF;
-		modbus_write_registers(mb, SET_LINEAR_X_POSITION, 8, SetPosArray);
-		SetPositionAndSpeedMode();		// set X,Y and R
-	};
 
 
-	// WORKING NOW ONLY ON SPEED MODE 
-	VICARLIB_API void SetPositionR(float pos_r)
-	{
-		int pr = pos_r * 1000;
-		//printf("pr is %i\n", pr);
-		ResetControlWord();
-		SetPos_R_Array[0] = (pr & 0xFFFF0000) / 65536;
-		SetPos_R_Array[1] = pr & 0x0000FFFF;
-		SetPos_R_Array[2] = (CART_DEFAULT_ROTATION_SPEED & 0xFFFF0000) / 65536;
-		SetPos_R_Array[3] = CART_DEFAULT_ROTATION_SPEED & 0x0000FFFF;
-		modbus_write_registers(mb, SET_R_POSITION, 4, SetPos_R_Array);
-		Set_R_PositionControlWord();
-
-		//uint16_t ChangeOfSpeed[2];
-		//change_of_speed *= 1000;
-		////ResetControlWord();
-		//ChangeOfSpeed[0] = (change_of_speed & 0xFFFF0000) / 65536;
-		//ChangeOfSpeed[1] = change_of_speed & 0x0000FFFF;
-		//modbus_write_registers(mb, SET_R_CHANGE_OF_SPEED, 2, ChangeOfSpeed);
-		//Set_R_ChangeSpeedControlWord();
-
-		//under test
-		//Set_R_and_ChangeOfSpeed_ControlWord();
-	};
-
-	VICARLIB_API void SetPositionR_withSpeed(float pos_r, int change_of_speed)
-	{
-		int pr = pos_r * 1000;
-		//printf("pr is %i\n", pr);
-		ResetControlWord();
-		SetPos_R_Array[0] = (pr & 0xFFFF0000) / 65536;
-		SetPos_R_Array[1] = pr & 0x0000FFFF;
-		SetPos_R_Array[2] = (CART_DEFAULT_ROTATION_SPEED & 0xFFFF0000) / 65536;
-		SetPos_R_Array[3] = CART_DEFAULT_ROTATION_SPEED & 0x0000FFFF;
-		modbus_write_registers(mb, SET_R_POSITION, 4, SetPos_R_Array);
-		//Set_R_PositionControlWord();
-
-		uint16_t ChangeOfSpeed[2];
-		change_of_speed *= 1000;
-		ChangeOfSpeed[0] = (change_of_speed & 0xFFFF0000) / 65536;
-		ChangeOfSpeed[1] = change_of_speed & 0x0000FFFF;
-		modbus_write_registers(mb, SET_R_CHANGE_OF_SPEED, 2, ChangeOfSpeed);
-		Set_R_and_ChangeOfSpeed_ControlWord();
-	};
-
-	VICARLIB_API void SetChangeOfSpeedR(int change_of_speed) {
-		uint16_t ChangeOfSpeed[2];
-		change_of_speed *= 1000;
-		ResetControlWord();
-		ChangeOfSpeed[0] = (change_of_speed & 0xFFFF0000) / 65536;
-		ChangeOfSpeed[1] = change_of_speed & 0x0000FFFF;
-		modbus_write_registers(mb, SET_R_CHANGE_OF_SPEED, 2, ChangeOfSpeed);
-		Set_R_ChangeSpeedControlWord();
-	};
 
 	VICARLIB_API void SetSpeedWithSignR(int speed)	//expressed in RPM
 	{
@@ -422,24 +340,8 @@ extern "C" {
 		return current[2];
 	};
 
-	VICARLIB_API short GetCurrentR_fromRegister()
-	{
-		uint16_t _currentArray[2];
-		modbus_read_registers(mb, INSTANT_R_CURRENT, 2, _currentArray);
-		short _current = (short)(((unsigned short)_currentArray[0] * 65536) + (unsigned short)_currentArray[1]);
-		return _current;
-	}
 
-	VICARLIB_API bool IsMoving() {
-		modbus_read_registers(mb, 100, 1, StatusWord);
-		bool moving_status = CHECK_BIT(StatusWord[0], 4) || CHECK_BIT(StatusWord[0], 5) || CHECK_BIT(StatusWord[0], 6); //bit 4 and 5
-		return moving_status;
-	};
-	VICARLIB_API bool IsReady() {
-		modbus_read_registers(mb, 100, 1, StatusWord);
-		bool ready_status = CHECK_BIT(StatusWord[0], 7);
-		return ready_status;
-	};
+
 
 	VICARLIB_API float GetForceX() {
 		if (abs(current[0]) > XY_CURRENT_THRESHOLD || abs(current[1]) > XY_CURRENT_THRESHOLD)
@@ -483,30 +385,6 @@ extern "C" {
 	VICARLIB_API float GetAbsoluteAngle() {
 		return GetPositionR();	//update r position
 	};
-
-
-	/*******************************/
-	/*	TESTING FUNCTIONS		   */
-	/*******************************/
-
-	VICARLIB_API void RotationTestWithSign()
-	{
-
-		float abs_current;
-		R_current = (float)GetCurrentR_fromRegister();
-		printf("current is %.2f\n", R_current);
-		abs_current = abs(R_current);
-		if (abs_current > 200)
-		{
-			if (R_current > 0)
-				SetSpeedWithSignR(DEFAULT_R_SPEED);
-			else
-				SetSpeedWithSignR(-DEFAULT_R_SPEED);
-		}	
-		else
-			SetSpeedWithSignR(0);
-	};
-
 
 
 }

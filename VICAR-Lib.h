@@ -63,15 +63,26 @@
 
 using namespace std;
 
-// internal functions not necessary to declare
 
-// Set up front for movement
-void SetPositionControlWord();
-void Set_R_PositionControlWord();
-void Set_R_ChangeSpeedControlWord();
-void SetSpeedMode();
+void SetPositionAndSpeedMode();
 // Reset all the Control Word
 void ResetControlWord();
+
+// test functions
+void RotationTestWithSign();
+// set drive parameters
+void SetParametersX(uint16_t kp, uint16_t ki, uint16_t reference_filter);
+void SetParametersY(uint16_t kp, uint16_t ki, uint16_t reference_filter);
+void SetParametersR(uint16_t kp, uint16_t ki, uint16_t reference_filter);
+
+// check if the system is moving
+bool IsMoving();
+// check if the system is ready
+bool IsReady();
+
+// set R position
+void SetPositionR(float pos_r);
+
 
 extern "C" {
 
@@ -105,12 +116,7 @@ extern "C" {
 	VICARLIB_API float GetPositionR();
 	// set X,Y positions
 	VICARLIB_API void SetPositionXY(int pos_x,int pos_y,int speed_x,int speed_y);
-	// set R position
-	VICARLIB_API void SetPositionR(float pos_r);
-	// set position and change speed
-	VICARLIB_API void SetPositionR_withSpeed(float pos_r, int change_of_speed);
-	// set R change of speed
-	VICARLIB_API void SetChangeOfSpeedR(int change_of_speed);
+
 	VICARLIB_API void SetSpeedWithSignR(int speed);
 
 	// get velocity
@@ -123,24 +129,16 @@ extern "C" {
 	VICARLIB_API short GetCurrentX();
 	VICARLIB_API short GetCurrentY();
 	VICARLIB_API short GetCurrentR();
-	VICARLIB_API short GetCurrentR_fromRegister();
+	//VICARLIB_API short GetCurrentR_fromRegister();
 
 	// get drive parameters
 	VICARLIB_API uint16_t* GetParametersX();
 	VICARLIB_API uint16_t* GetParametersY();
 	VICARLIB_API uint16_t* GetParametersR();
 
-	// set drive parameters
-	VICARLIB_API void SetParametersX(uint16_t kp, uint16_t ki, uint16_t reference_filter);
-	VICARLIB_API void SetParametersY(uint16_t kp, uint16_t ki, uint16_t reference_filter);
-	VICARLIB_API void SetParametersR(uint16_t kp, uint16_t ki, uint16_t reference_filter);
 
-	// check if the system is moving
-	VICARLIB_API bool IsMoving();
-	// check if the system is ready
-	VICARLIB_API bool IsReady();
 
 	VICARLIB_API int GetMass();
 
-	VICARLIB_API void RotationTestWithSign();
+	
 }
