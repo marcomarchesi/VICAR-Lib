@@ -54,13 +54,23 @@ fstream file;
 /*	PRIVATE CONTROL SETTINGS	 */
 /*********************************/
 
+int CheckStatus()
+{
+	modbus_read_registers(mb, STATUS_WORD, 1, StatusWord);
+	printf("status is %u\n", StatusWord[0]);
+	if ((StatusWord[0] & 128) == 128)
+		return 1;
+	else
+		return 0;
+}
+
 void SetSpeedMode() {
-	ControlWord[0] = 64; //1000000
+	ControlWord[0] = 128; //10000000
 	modbus_write_registers(mb, CONTROL_WORD, 1, ControlWord);
 };
 void SetPositionAndSpeedMode()
 {
-	ControlWord[0] = 70; //1000110
+	ControlWord[0] = 224; //11100000
 	modbus_write_registers(mb, CONTROL_WORD, 1, ControlWord);
 };
 void SetPositionControlWord() {
@@ -124,6 +134,8 @@ extern "C" {
 
 		printf("Modbus connected\n");
 
+		Sleep(2000);
+		//SetPositionAndSpeedMode();
 		SetMass(1);
 		SetPositionXY(10, 10, CART_SPEED, CART_SPEED);
 		return 0;
@@ -137,10 +149,8 @@ extern "C" {
 		int connection = modbus_connect(mb);
 		printf("Modbus connected\n");
 
-		//ResetControlWord();
-		//Sleep (time);
+		Sleep(2000);
 		//SetPositionAndSpeedMode();
-
 		SetMass(mass);
 		SetPositionXY(10, 10, CART_SPEED, CART_SPEED);
 
@@ -180,13 +190,14 @@ extern "C" {
 		float abs_current;
 		R_current = (float)current[2];
 		printf("R current is %.2f\n", R_current);
+		//printf("vel is %.2f\n", GetVelocityR());
 		abs_current = abs(R_current);
 
 		// check cart mass
 		if (cart_mass < 1)
 			cart_mass = 1;
 
-		if (abs_current > R_CURRENT_THRESHOLD)  //200
+		if (abs_current > R_CURRENT_THRESHOLD)  //300
 		{
 			if (R_current > 0)
 				SetSpeedWithSignR(DEFAULT_R_SPEED / cart_mass);
@@ -383,7 +394,7 @@ extern "C" {
 
 	VICARLIB_API void SetSpeedWithSignR(int speed)	//expressed in RPM
 	{
-
+		//CheckStatus();
 		if (speed < 0)		//check the sign
 		{
 			speed = 65536 - abs(speed);
@@ -480,8 +491,10 @@ extern "C" {
 
 	VICARLIB_API void RotationTestWithSign()
 	{
+
 		float abs_current;
 		R_current = (float)GetCurrentR_fromRegister();
+		printf("current is %.2f\n", R_current);
 		abs_current = abs(R_current);
 		if (abs_current > 200)
 		{
