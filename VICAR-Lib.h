@@ -83,6 +83,36 @@ bool IsReady();
 // set R position
 void SetPositionR(float pos_r);
 
+// get X,Y positions
+float* GetPosition();
+float GetPositionX();
+float GetPositionY();
+float GetPositionR();
+// set X,Y positions
+void SetPositionXY(int pos_x, int pos_y, int speed_x, int speed_y);
+
+void SetSpeedWithSignR(int speed);
+
+// get velocity
+float* GetVelocity();
+float GetVelocityX();
+float GetVelocityY();
+float GetVelocityR();
+// get current from X,Y
+short* GetCurrent();
+short GetCurrentX();
+short GetCurrentY();
+short GetCurrentR();
+
+// get drive parameters
+uint16_t* GetParametersX();
+uint16_t* GetParametersY();
+uint16_t* GetParametersR();
+
+
+
+
+
 
 extern "C" {
 
@@ -97,6 +127,7 @@ extern "C" {
 	VICARLIB_API void Update();
 	// set cart mass
 	VICARLIB_API void SetMass(int value);
+	VICARLIB_API int GetMass();
 	// calculate force to apply
 	VICARLIB_API float GetForceX();
 	VICARLIB_API float GetForceY();
@@ -108,37 +139,4 @@ extern "C" {
 	//TODO THE FOLLOWING FUNCTIONS HAVE TO BE PRIVATE
 	//just a test function
 	VICARLIB_API int Test();
-
-	// get X,Y positions
-	VICARLIB_API float* GetPosition();
-	VICARLIB_API float GetPositionX();
-	VICARLIB_API float GetPositionY();
-	VICARLIB_API float GetPositionR();
-	// set X,Y positions
-	VICARLIB_API void SetPositionXY(int pos_x,int pos_y,int speed_x,int speed_y);
-
-	VICARLIB_API void SetSpeedWithSignR(int speed);
-
-	// get velocity
-	VICARLIB_API float* GetVelocity();
-	VICARLIB_API float GetVelocityX();
-	VICARLIB_API float GetVelocityY();
-	VICARLIB_API float GetVelocityR();
-	// get current from X,Y
-	VICARLIB_API short* GetCurrent();
-	VICARLIB_API short GetCurrentX();
-	VICARLIB_API short GetCurrentY();
-	VICARLIB_API short GetCurrentR();
-	//VICARLIB_API short GetCurrentR_fromRegister();
-
-	// get drive parameters
-	VICARLIB_API uint16_t* GetParametersX();
-	VICARLIB_API uint16_t* GetParametersY();
-	VICARLIB_API uint16_t* GetParametersR();
-
-
-
-	VICARLIB_API int GetMass();
-
-	
 }

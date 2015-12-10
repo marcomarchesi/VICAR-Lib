@@ -126,6 +126,121 @@ bool IsReady() {
 	return ready_status;
 };
 
+float* GetVelocity()
+{
+	modbus_read_registers(mb, INSTANT_X_VELOCITY, 6, VelocityArray);
+	velocity[0] = (float)(((unsigned short)VelocityArray[0] * 65536) + (unsigned short)VelocityArray[1]) / 1000;
+	velocity[1] = (float)(((unsigned short)VelocityArray[2] * 65536) + (unsigned short)VelocityArray[3]) / 1000;
+	velocity[2] = (float)(((unsigned short)VelocityArray[4] * 65536) + (unsigned short)VelocityArray[5]) / 1000;
+	return velocity;
+}
+
+float GetVelocityX() {
+	uint16_t XArray[2];
+	float x_velocity;
+	modbus_read_registers(mb, INSTANT_X_VELOCITY, 2, XArray);
+	x_velocity = (float)(((unsigned short)XArray[0] * 65536) + (unsigned short)XArray[1]) / 1000;
+	return x_velocity;
+};
+
+float GetVelocityY() {
+	uint16_t YArray[2];
+	float y_velocity;
+	modbus_read_registers(mb, INSTANT_Y_VELOCITY, 2, YArray);
+	y_velocity = (float)(((unsigned short)YArray[0] * 65536) + (unsigned short)YArray[1]) / 1000;
+	return y_velocity;
+};
+
+float GetVelocityR() {
+	uint16_t RArray[2];
+	float r_velocity;
+	modbus_read_registers(mb, INSTANT_R_VELOCITY, 2, RArray);
+	r_velocity = (float)(((unsigned short)RArray[0] * 65536) + (unsigned short)RArray[1]) / 1000;
+	return r_velocity;
+};
+
+
+
+float* GetPosition() {
+	modbus_read_registers(mb, INSTANT_LINEAR_X_POSITION, 6, PosArray);
+	position[0] = (float)(((unsigned short)PosArray[0] * 65536) + (unsigned short)PosArray[1]) / 1000;
+	position[1] = (float)(((unsigned short)PosArray[2] * 65536) + (unsigned short)PosArray[3]) / 1000;
+	position[2] = (float)(((unsigned short)PosArray[4] * 65536) + (unsigned short)PosArray[5]) / 1000;
+	return position;
+};
+
+float GetPositionX() {
+	uint16_t XArray[2];
+	float x_position;
+	modbus_read_registers(mb, INSTANT_LINEAR_X_POSITION, 2, XArray);
+	x_position = (float)(((unsigned short)XArray[0] * 65536) + (unsigned short)XArray[1]) / 1000;
+	return x_position;
+};
+
+float GetPositionY() {
+	uint16_t YArray[2];
+	float y_position;
+	modbus_read_registers(mb, INSTANT_LINEAR_Y_POSITION, 2, YArray);
+	y_position = (float)(((unsigned short)YArray[0] * 65536) + (unsigned short)YArray[1]) / 1000;
+	return y_position;
+};
+
+float GetPositionR() {
+	uint16_t RotArray[2];
+	float r_position;
+	modbus_read_registers(mb, INSTANT_LINEAR_R_POSITION, 2, RotArray);
+	r_position = (float)(((unsigned short)RotArray[0] * 65536) + (unsigned short)RotArray[1]) / 1000;
+	return r_position;
+};
+
+uint16_t* GetParametersX() {
+	modbus_read_registers(mb, X_DRIVE_SPEED, 3, XSpeedParameters);
+	return XSpeedParameters;
+};
+
+uint16_t* GetParametersY() {
+	modbus_read_registers(mb, Y_DRIVE_SPEED, 3, YSpeedParameters);
+	return YSpeedParameters;
+};
+
+uint16_t* GetParametersR() {
+	modbus_read_registers(mb, R_DRIVE_SPEED, 3, RSpeedParameters);
+	return RSpeedParameters;
+};
+
+
+
+
+void SetSpeedWithSignR(int speed)	//expressed in RPM
+{
+	//CheckStatus();
+	if (speed < 0)		//check the sign
+	{
+		speed = 65536 - abs(speed);
+	}
+	uint16_t ChangeOfSpeed[1];
+	ChangeOfSpeed[0] = speed;
+	modbus_write_registers(mb, SET_R_CHANGE_OF_SPEED_WITH_SIGN, 1, ChangeOfSpeed);
+
+};
+
+short* GetCurrent() {
+	modbus_read_registers(mb, INSTANT_X_CURRENT, 6, CurrentArray);
+	current[0] = (short)(((unsigned short)CurrentArray[0] * 65536) + (unsigned short)CurrentArray[1]);
+	current[1] = (short)(((unsigned short)CurrentArray[2] * 65536) + (unsigned short)CurrentArray[3]);
+	current[2] = (short)(((unsigned short)CurrentArray[4] * 65536) + (unsigned short)CurrentArray[5]);
+	return current;
+};
+ short GetCurrentX() {
+	return current[0];
+};
+ short GetCurrentY() {
+	return current[1];
+};
+ short GetCurrentR() {
+	return current[2];
+};
+
 
 extern "C" {
 
@@ -225,120 +340,7 @@ extern "C" {
 		return cart_mass;
 	};
 
-	VICARLIB_API float* GetVelocity()
-	{
-		modbus_read_registers(mb, INSTANT_X_VELOCITY, 6, VelocityArray);
-		velocity[0] = (float)(((unsigned short)VelocityArray[0] * 65536) + (unsigned short)VelocityArray[1]) / 1000;
-		velocity[1] = (float)(((unsigned short)VelocityArray[2] * 65536) + (unsigned short)VelocityArray[3]) / 1000;
-		velocity[2] = (float)(((unsigned short)VelocityArray[4] * 65536) + (unsigned short)VelocityArray[5]) / 1000;
-		return velocity;
-	}
-
-	VICARLIB_API float GetVelocityX() {
-		uint16_t XArray[2];
-		float x_velocity;
-		modbus_read_registers(mb, INSTANT_X_VELOCITY, 2, XArray);
-		x_velocity = (float)(((unsigned short)XArray[0] * 65536) + (unsigned short)XArray[1]) / 1000;
-		return x_velocity;
-	};
-
-	VICARLIB_API float GetVelocityY() {
-		uint16_t YArray[2];
-		float y_velocity;
-		modbus_read_registers(mb, INSTANT_Y_VELOCITY, 2, YArray);
-		y_velocity = (float)(((unsigned short)YArray[0] * 65536) + (unsigned short)YArray[1]) / 1000;
-		return y_velocity;
-	};
-
-	VICARLIB_API float GetVelocityR() {
-		uint16_t RArray[2];
-		float r_velocity;
-		modbus_read_registers(mb, INSTANT_R_VELOCITY, 2, RArray);
-		r_velocity = (float)(((unsigned short)RArray[0] * 65536) + (unsigned short)RArray[1]) / 1000;
-		return r_velocity;
-	};
-
-
-
-	VICARLIB_API float* GetPosition() {
-		modbus_read_registers(mb, INSTANT_LINEAR_X_POSITION, 6, PosArray);
-		position[0] = (float)(((unsigned short)PosArray[0] * 65536) + (unsigned short)PosArray[1]) / 1000;
-		position[1] = (float)(((unsigned short)PosArray[2] * 65536) + (unsigned short)PosArray[3]) / 1000;
-		position[2] = (float)(((unsigned short)PosArray[4] * 65536) + (unsigned short)PosArray[5]) / 1000;
-		return position;
-	};
-
-	VICARLIB_API float GetPositionX() {
-		uint16_t XArray[2];
-		float x_position;
-		modbus_read_registers(mb, INSTANT_LINEAR_X_POSITION, 2, XArray);
-		x_position = (float)(((unsigned short)XArray[0] * 65536) + (unsigned short)XArray[1]) / 1000;
-		return x_position;
-	};
-
-	VICARLIB_API float GetPositionY() {
-		uint16_t YArray[2];
-		float y_position;
-		modbus_read_registers(mb, INSTANT_LINEAR_Y_POSITION, 2, YArray);
-		y_position = (float)(((unsigned short)YArray[0] * 65536) + (unsigned short)YArray[1]) / 1000;
-		return y_position;
-	};
-
-	VICARLIB_API float GetPositionR() {
-		uint16_t RotArray[2];
-		float r_position;
-		modbus_read_registers(mb, INSTANT_LINEAR_R_POSITION, 2, RotArray);
-		r_position = (float)(((unsigned short)RotArray[0] * 65536) + (unsigned short)RotArray[1]) / 1000;
-		return r_position;
-	};
-
-	VICARLIB_API uint16_t* GetParametersX() {
-		modbus_read_registers(mb, X_DRIVE_SPEED, 3, XSpeedParameters);
-		return XSpeedParameters;
-	};
-
-	VICARLIB_API uint16_t* GetParametersY() {
-		modbus_read_registers(mb, Y_DRIVE_SPEED, 3, YSpeedParameters);
-		return YSpeedParameters;
-	};
-
-	VICARLIB_API uint16_t* GetParametersR() {
-		modbus_read_registers(mb, R_DRIVE_SPEED, 3, RSpeedParameters);
-		return RSpeedParameters;
-	};
-
-
-
-
-	VICARLIB_API void SetSpeedWithSignR(int speed)	//expressed in RPM
-	{
-		//CheckStatus();
-		if (speed < 0)		//check the sign
-		{
-			speed = 65536 - abs(speed);
-		}
-		uint16_t ChangeOfSpeed[1];
-		ChangeOfSpeed[0] = speed;
-		modbus_write_registers(mb, SET_R_CHANGE_OF_SPEED_WITH_SIGN, 1, ChangeOfSpeed);
-		
-	};
-
-	VICARLIB_API short* GetCurrent() {
-		modbus_read_registers(mb, INSTANT_X_CURRENT, 6, CurrentArray);
-		current[0] = (short)(((unsigned short)CurrentArray[0] * 65536) + (unsigned short)CurrentArray[1]);
-		current[1] = (short)(((unsigned short)CurrentArray[2] * 65536) + (unsigned short)CurrentArray[3]);
-		current[2] = (short)(((unsigned short)CurrentArray[4] * 65536) + (unsigned short)CurrentArray[5]);
-		return current;
-	};
-	VICARLIB_API short GetCurrentX() {
-		return current[0];
-	};
-	VICARLIB_API short GetCurrentY() {
-		return current[1];
-	};
-	VICARLIB_API short GetCurrentR() {
-		return current[2];
-	};
+	
 
 
 
