@@ -264,10 +264,10 @@ extern "C" {
 		return 0;
 	};
 
-	VICARLIB_API int Connect(string address = "137.204.56.92", int port = 1024, int mass = 1) {
+	VICARLIB_API int Connect(const char* address = "137.204.56.92", int port = 1024, int mass = 1) {
 
 		printf("Default mass is %i\n", mass);
-		mb = modbus_new_tcp(address.c_str(), port);
+		mb = modbus_new_tcp(address, port);
 		modbus_set_slave(mb, 1);
 		int connection = modbus_connect(mb);
 		printf("Modbus connected\n");

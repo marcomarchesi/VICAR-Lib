@@ -110,15 +110,11 @@ uint16_t* GetParametersY();
 uint16_t* GetParametersR();
 
 
-
-
-
-
 extern "C" {
 
 	// PUBLIC API
 	//connect to default ip 137.204.56.92 - test
-	VICARLIB_API int Connect(string address, int port, int mass);
+	VICARLIB_API int Connect(const char* address, int port, int mass);
 	// initialize the system with a defined mass
 	VICARLIB_API int ConnectForUnity();
 	// close modbus connection
